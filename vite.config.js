@@ -1,7 +1,10 @@
 import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const base = '/Zettelkasten/'
+
 export default defineConfig({
+  base,
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -14,8 +17,8 @@ export default defineConfig({
         background_color: '#f7f3ee',
         display: 'standalone',
         orientation: 'portrait',
-        scope: '/',
-        start_url: '/',
+        scope: base,
+        start_url: base,
         icons: [
           {
             src: 'icon-192.svg',
@@ -35,7 +38,6 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         runtimeCaching: [
           {
-            // Google Fonts — cache first
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/i,
             handler: 'CacheFirst',
             options: {
