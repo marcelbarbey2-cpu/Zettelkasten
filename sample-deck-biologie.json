@@ -1,0 +1,56 @@
+{
+  "id": "bio-zelle-v1",
+  "name": "Biologie — Zelle",
+  "cards": [
+    {
+      "id": "bio-001",
+      "front": "Was ist eine Zelle?",
+      "back": "Die kleinste lebende Einheit eines Organismus."
+    },
+    {
+      "id": "bio-002",
+      "front": "Welche zwei Grundtypen von Zellen gibt es?",
+      "back": "**Prokaryoten** (ohne Zellkern) und **Eukaryoten** (mit Zellkern)."
+    },
+    {
+      "id": "bio-003",
+      "front": "Was ist die Funktion der Zellmembran?",
+      "back": "Sie begrenzt die Zelle, regelt den Stofftransport und trennt das Innere vom Außenraum."
+    },
+    {
+      "id": "bio-004",
+      "front": "Was ist das Mitochondrium?",
+      "back": "Das \"Kraftwerk der Zelle\" — hier findet die Zellatmung statt und ATP wird produziert."
+    },
+    {
+      "id": "bio-005",
+      "front": "Was ist die Aufgabe des Zellkerns?",
+      "back": "Er enthält die **DNA** und steuert alle Zellfunktionen."
+    },
+    {
+      "id": "bio-006",
+      "front": "Wie nennt man die flüssige Grundsubstanz im Zellinneren?",
+      "back": "Das **Cytoplasma** (oder Cytosol)."
+    },
+    {
+      "id": "bio-007",
+      "front": "Was ist die Funktion der Ribosomen?",
+      "back": "Sie sind für die **Proteinsynthese** zuständig — sie lesen mRNA und bauen Proteine."
+    },
+    {
+      "id": "bio-008",
+      "front": "Was unterscheidet Tier- von Pflanzenzellen?",
+      "back": "Pflanzenzellen haben zusätzlich: **Zellwand**, **Chloroplasten** und eine **zentrale Vakuole**."
+    },
+    {
+      "id": "bio-009",
+      "front": "Was ist Osmose?",
+      "back": "Bewegung von Wasser durch eine semipermeable Membran von niedrigerer zu höherer Konzentration."
+    },
+    {
+      "id": "bio-010",
+      "front": "Was ist ATP?",
+      "back": "**Adenosintriphosphat** — die universelle Energiewährung der Zelle."
+    }
+  ]
+}
