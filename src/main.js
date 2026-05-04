@@ -5,6 +5,7 @@ import {
   getProgress, getCardState, setCardState,
   getSessionCount, bumpSessionCount,
   getDeckSettings, saveDeckSettings,
+  resetDeckProgress,
 } from './storage.js'
 import { today, getDueCards, getDeckStats, nextBox, DAILY_BUDGET } from './leitner.js'
 
@@ -61,7 +62,7 @@ function renderHome() {
         <div class="logo"><span class="logo-icon">◈</span><span class="logo-text">Zettelkasten</span></div>
         <label class="btn btn-primary import-btn" tabindex="0">
           <span>+ Deck importieren</span>
-          <input type="file" id="file-import" accept=".json" style="display:none" />
+          <input type="file" id="file-import" accept=".json,.txt" style="display:none" />
         </label>
       </header>
 
@@ -134,6 +135,9 @@ function renderDeckCard(deck, folders) {
   const session   = getSessionCount(deck.id, today())
   const settings  = getDeckSettings(deck.id)
   const masteredPct = deck.cards.length > 0 ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
+  const avgBox = deck.cards.length > 0
+    ? ([1,2,3,4,5].reduce((s,b) => s + b * (stats.boxCounts[b]||0), 0) / deck.cards.length).toFixed(1)
+    : '–'
   const budgetLeft  = Math.max(0, DAILY_BUDGET - session.studied)
   const dueNow      = Math.min(stats.dueCount, budgetLeft)
   const atLimit     = !state.limitOverride && session.studied >= DAILY_BUDGET && stats.dueCount > 0
@@ -153,7 +157,8 @@ function renderDeckCard(deck, folders) {
         <div class="deck-meta">
           <span>${stats.total} Karten</span>
           <span class="sep">·</span>
-          <span>${masteredPct}% beherrscht</span>
+          <span>Ø Fach ${avgBox}</span>
+          ${masteredPct > 0 ? `<span class="sep">·</span><span class="mastered-pct">${masteredPct}% Fach 5</span>` : ''}
         </div>
         ${renderBoxBar(stats.boxCounts, deck.cards.length)}
         <div class="deck-due-row">
@@ -180,6 +185,7 @@ function renderDeckCard(deck, folders) {
           data-action="study" data-deck-id="${deck.id}" ${canStudy ? '' : 'disabled'}>
           ${canStudy ? (atLimit ? '+ Mehr' : 'Lernen') : 'Fertig'}
         </button>
+        <button class="btn btn-ghost btn-reset" data-action="reset" data-deck-id="${deck.id}" title="Fortschritt zurücksetzen">↺</button>
         <button class="btn btn-ghost btn-delete" data-action="delete" data-deck-id="${deck.id}" title="Löschen">✕</button>
       </div>
     </div>
@@ -370,6 +376,7 @@ document.addEventListener('click', e => {
 
   if (action === 'study')         startStudy(deckId)
   if (action === 'delete')        confirmDelete(deckId)
+  if (action === 'reset')         confirmReset(deckId)
   if (action === 'filter-folder') { state.activeFolderId = folderId || null; render() }
   if (action === 'new-folder')    createFolder()
   if (action === 'delete-folder') confirmDeleteFolder(folderId)
@@ -412,6 +419,16 @@ function startStudy(deckId) {
     return
   }
   navigate('study', { deck, queue, queueIdx: 0, flipped: false, sessionGrades: [] })
+}
+
+function confirmReset(deckId) {
+  const deck = getDecks()[deckId]
+  if (!deck) return
+  if (confirm(`Fortschritt von "${deck.name}" zurücksetzen? Alle Karten kommen wieder in Fach 1.`)) {
+    resetDeckProgress(deckId)
+    showToast('Fortschritt zurückgesetzt — alle Karten in Fach 1', 'info')
+    render()
+  }
 }
 
 function confirmDelete(deckId) {
