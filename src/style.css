@@ -542,6 +542,7 @@ body { background: var(--bg); }
 .deck-folder-select:focus { border-color: var(--accent); }
 
 .btn-study { flex-shrink: 0; }
+.btn-limit { background: var(--surface-2) !important; color: var(--accent) !important; }
 
 /* ── Study screen ────────────────────────────────────────────────────────── */
 .study-header {

@@ -136,7 +136,8 @@ function renderDeckCard(deck, folders) {
   const masteredPct = deck.cards.length > 0 ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
   const budgetLeft  = Math.max(0, DAILY_BUDGET - session.studied)
   const dueNow      = Math.min(stats.dueCount, budgetLeft)
-  const canStudy    = dueNow > 0 || (state.limitOverride && stats.dueCount > 0)
+  const atLimit     = !state.limitOverride && session.studied >= DAILY_BUDGET && stats.dueCount > 0
+  const canStudy    = dueNow > 0 || (state.limitOverride && stats.dueCount > 0) || atLimit
 
   const folder = deck.folderId ? folders.find(f => f.id === deck.folderId) : null
   const col    = folder ? folderColor(folder.color) : null
@@ -175,9 +176,9 @@ function renderDeckCard(deck, folders) {
           <option value="">Kein Ordner</option>
           ${folders.map(f => `<option value="${f.id}" ${deck.folderId === f.id ? 'selected' : ''}>${escHtml(f.name)}</option>`).join('')}
         </select>
-        <button class="btn btn-study ${canStudy ? '' : 'btn-disabled'}"
+        <button class="btn btn-study ${canStudy ? (atLimit ? 'btn-limit' : '') : 'btn-disabled'}"
           data-action="study" data-deck-id="${deck.id}" ${canStudy ? '' : 'disabled'}>
-          ${canStudy ? 'Lernen' : 'Fertig'}
+          ${canStudy ? (atLimit ? '+ Mehr' : 'Lernen') : 'Fertig'}
         </button>
         <button class="btn btn-ghost btn-delete" data-action="delete" data-deck-id="${deck.id}" title="Löschen">✕</button>
       </div>
