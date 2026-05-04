@@ -136,7 +136,7 @@ function renderDeckCard(deck, folders) {
   const settings   = getDeckSettings(deck.id)
   const total      = deck.cards.length
   const securePct  = total > 0
-    ? Math.round(((stats.boxCounts[4]||0) + (stats.boxCounts[5]||0)) / total * 100)
+    ? Math.round(((stats.boxCounts[3]||0) + (stats.boxCounts[4]||0) + (stats.boxCounts[5]||0)) / total * 100)
     : 0
   const barColor   = securePct >= 66
     ? 'oklch(0.55 0.13 145)'   // green
