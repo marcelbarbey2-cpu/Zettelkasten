@@ -137,6 +137,41 @@ body { background: var(--bg); }
 }
 .btn-delete:hover { color: var(--red); background: var(--red-light); }
 
+/* ── Grade buttons (Anki-style) ──────────────────────────────────────────── */
+.grade-buttons {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+
+.grade-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 10px 6px;
+  border-radius: var(--radius);
+  border: none;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+.grade-btn:active { transform: translateY(1px); }
+.grade-btn span { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; }
+
+.grade-again { background: oklch(0.93 0.06 25);  color: oklch(0.4 0.14 25);  }
+.grade-hard  { background: oklch(0.93 0.06 60);  color: oklch(0.4 0.14 55);  }
+.grade-good  { background: oklch(0.92 0.06 145); color: oklch(0.38 0.13 145); }
+.grade-easy  { background: oklch(0.92 0.07 240); color: oklch(0.38 0.13 240); }
+
+.grade-again:hover { filter: brightness(0.94); }
+.grade-hard:hover  { filter: brightness(0.94); }
+.grade-good:hover  { filter: brightness(0.94); }
+.grade-easy:hover  { filter: brightness(0.94); }
+
 /* ── App header ──────────────────────────────────────────────────────────── */
 .app-header {
   display: flex;
@@ -173,13 +208,100 @@ body { background: var(--bg); }
   cursor: pointer;
 }
 
+/* ── Home layout ─────────────────────────────────────────────────────────── */
+.home-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ── Folder sidebar ──────────────────────────────────────────────────────── */
+.folder-sidebar {
+  width: 180px;
+  min-width: 180px;
+  border-right: 1px solid var(--border);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--surface);
+  overflow-y: auto;
+}
+
+.folder-sidebar-title {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-3);
+  padding: 0 8px 8px;
+}
+
+.folder-row {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.folder-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  text-align: left;
+  min-width: 0;
+}
+.folder-item:hover { background: var(--surface-2); color: var(--text); }
+.folder-item.active { background: var(--surface-2); color: var(--text); font-weight: 700; }
+
+.folder-item-icon { font-size: 12px; color: var(--accent); }
+.folder-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.folder-count { margin-left: auto; font-size: 11px; color: var(--text-3); font-weight: 700; }
+
+.folder-del-btn {
+  flex-shrink: 0;
+  width: 22px; height: 22px;
+  border-radius: 5px; border: none;
+  background: transparent; cursor: pointer;
+  font-size: 11px; color: var(--text-3);
+  display: flex; align-items: center; justify-content: center;
+  transition: color 0.12s;
+}
+.folder-del-btn:hover { color: var(--red); }
+
+.new-folder-btn {
+  margin-top: 8px;
+  padding: 7px 10px;
+  border-radius: var(--radius);
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-3);
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+  text-align: left;
+}
+.new-folder-btn:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ── Home main ───────────────────────────────────────────────────────────── */
 .home-main {
   flex: 1;
-  padding: 32px 24px;
-  max-width: 900px;
-  width: 100%;
-  margin: 0 auto;
+  padding: 24px;
+  overflow-y: auto;
+  min-width: 0;
 }
 
 .app-footer {
@@ -271,34 +393,60 @@ body { background: var(--bg); }
 }
 
 .deck-card-body {
-  padding: 18px 18px 12px;
+  padding: 16px 16px 10px;
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 7px;
+}
+
+.deck-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 8px;
 }
 
 .deck-name {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   color: var(--text);
   line-height: 1.3;
+  flex: 1;
+}
+
+.deck-fach {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  background: var(--surface-2);
+  padding: 2px 8px;
+  border-radius: 99px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.deck-folder-tag {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  align-self: flex-start;
 }
 
 .deck-meta {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-2);
 }
 
 .sep { margin: 0 4px; }
 
 .box-bar {
-  height: 6px;
+  height: 5px;
   border-radius: 99px;
   overflow: hidden;
   display: flex;
   background: var(--surface-2);
-  margin: 4px 0;
 }
 
 .box-bar-seg {
@@ -306,47 +454,82 @@ body { background: var(--bg); }
   transition: width 0.4s ease;
 }
 
-.deck-due {
+.deck-due-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .due-badge {
   background: oklch(0.95 0.06 65);
   color: oklch(0.45 0.14 65);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 99px;
 }
 
 .done-badge, .uptodate-badge {
   background: var(--green-light);
   color: var(--green);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  padding: 3px 10px;
+  padding: 2px 8px;
   border-radius: 99px;
 }
 
 .studied-today {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-3);
+}
+
+.reverse-toggle {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.reverse-toggle input { cursor: pointer; accent-color: var(--accent); }
+.reverse-toggle:has(input:checked) { color: var(--accent); }
+
+.reversed-badge {
+  font-size: 11px;
+  color: var(--accent);
+  font-style: normal;
 }
 
 .deck-card-actions {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-top: 1px solid var(--border);
   background: oklch(0.98 0.008 75);
 }
 
-.btn-study { margin-left: auto; }
+.deck-folder-select {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: var(--text-2);
+  background: white;
+  outline: none;
+  cursor: pointer;
+}
+.deck-folder-select:focus { border-color: var(--accent); }
+
+.btn-study { flex-shrink: 0; }
 
 /* ── Study screen ────────────────────────────────────────────────────────── */
 .study-header {
@@ -612,6 +795,36 @@ body { background: var(--bg); }
   color: var(--text-3);
 }
 
+/* ── Grade breakdown (summary) ───────────────────────────────────────────── */
+.grade-breakdown {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+}
+
+.grade-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+.grade-row span:last-child { margin-left: auto; font-weight: 700; color: var(--text); }
+
+.grade-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.grade-dot.again  { background: oklch(0.55 0.14 25);  }
+.grade-dot.hard   { background: oklch(0.55 0.14 55);  }
+.grade-dot.good   { background: oklch(0.55 0.13 145); }
+.grade-dot.easy   { background: oklch(0.55 0.13 240); }
+
 /* ── Toast ───────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;
@@ -642,10 +855,19 @@ body { background: var(--bg); }
 .toast-error   { background: var(--red); }
 
 /* ── Responsive ──────────────────────────────────────────────────────────── */
-@media (max-width: 520px) {
-  .app-header { padding: 12px 16px; }
-  .home-main  { padding: 20px 16px; }
-  .card-face  { padding: 28px 20px 22px; }
-  .card-text  { font-size: 18px; }
-  .summary-card { padding: 36px 24px; }
+@media (max-width: 600px) {
+  .folder-sidebar { width: 120px; min-width: 120px; padding: 16px 8px; }
+  .folder-item    { font-size: 12px; padding: 6px 8px; }
+  .home-main      { padding: 16px; }
+  .app-header     { padding: 12px 16px; }
+  .card-face      { padding: 28px 20px 22px; }
+  .card-text      { font-size: 18px; }
+  .summary-card   { padding: 32px 20px; }
+  .grade-btn span { display: none; }
+  .grade-btn      { padding: 12px 4px; }
+}
+
+@media (max-width: 400px) {
+  .folder-sidebar { display: none; }
+  .home-main      { padding: 12px; }
 }

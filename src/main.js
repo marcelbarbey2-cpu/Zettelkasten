@@ -1,12 +1,12 @@
 import './style.css'
 import {
   getDecks, saveDeck, deleteDeck,
+  getFolders, saveFolder, deleteFolder,
   getProgress, getCardState, setCardState,
   getSessionCount, bumpSessionCount,
+  getDeckSettings, saveDeckSettings,
 } from './storage.js'
-import {
-  today, getDueCards, getDeckStats, nextBox,
-} from './leitner.js'
+import { today, getDueCards, getDeckStats, nextBox, DAILY_BUDGET } from './leitner.js'
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const state = {
@@ -15,129 +15,174 @@ const state = {
   queue: [],
   queueIdx: 0,
   flipped: false,
-  sessionCorrect: 0,
-  sessionTotal: 0,
+  sessionGrades: [],   // array of grade (0-3) per card
+  limitOverride: false,
+  activeFolderId: null, // null = all
 }
 
 const root = document.getElementById('app')
 
-// ── Router ────────────────────────────────────────────────────────────────────
 function navigate(view, params = {}) {
   Object.assign(state, { view, flipped: false, ...params })
   render()
 }
 
-// ── Render dispatch ───────────────────────────────────────────────────────────
 function render() {
   if (state.view === 'home')         renderHome()
   else if (state.view === 'study')   renderStudy()
   else if (state.view === 'summary') renderSummary()
 }
 
+// ── Folder colors ─────────────────────────────────────────────────────────────
+const FOLDER_COLORS = [
+  { id: 'amber',  label: 'Amber',  bg: 'oklch(0.92 0.08 75)',  text: 'oklch(0.45 0.15 65)'  },
+  { id: 'green',  label: 'Grün',   bg: 'oklch(0.92 0.07 145)', text: 'oklch(0.4 0.13 145)'  },
+  { id: 'blue',   label: 'Blau',   bg: 'oklch(0.92 0.07 240)', text: 'oklch(0.4 0.13 240)'  },
+  { id: 'purple', label: 'Lila',   bg: 'oklch(0.92 0.07 300)', text: 'oklch(0.4 0.12 300)'  },
+  { id: 'red',    label: 'Rot',    bg: 'oklch(0.93 0.07 25)',  text: 'oklch(0.4 0.14 25)'   },
+]
+function folderColor(colorId) {
+  return FOLDER_COLORS.find(c => c.id === colorId) ?? FOLDER_COLORS[0]
+}
+
 // ── Home ──────────────────────────────────────────────────────────────────────
 function renderHome() {
-  const decks = getDecks()
-  const deckList = Object.values(decks)
+  const decks   = getDecks()
+  const folders = getFolders()
+  const allDecks = Object.values(decks)
+
+  const visibleDecks = state.activeFolderId
+    ? allDecks.filter(d => d.folderId === state.activeFolderId)
+    : allDecks
 
   root.innerHTML = `
     <div class="screen home-screen">
       <header class="app-header">
-        <div class="logo">
-          <span class="logo-icon">◈</span>
-          <span class="logo-text">Zettelkasten</span>
-        </div>
+        <div class="logo"><span class="logo-icon">◈</span><span class="logo-text">Zettelkasten</span></div>
         <label class="btn btn-primary import-btn" tabindex="0">
           <span>+ Deck importieren</span>
           <input type="file" id="file-import" accept=".json" style="display:none" />
         </label>
       </header>
 
-      <main class="home-main">
-        ${deckList.length === 0 ? renderEmptyState() : renderDeckGrid(deckList)}
-      </main>
+      <div class="home-body">
+        <!-- Sidebar: Ordner -->
+        <aside class="folder-sidebar">
+          <div class="folder-sidebar-title">Ordner</div>
+          <button class="folder-item ${!state.activeFolderId ? 'active' : ''}" data-action="filter-folder" data-folder-id="">
+            <span class="folder-item-icon">◈</span> Alle
+            <span class="folder-count">${allDecks.length}</span>
+          </button>
+          ${folders.map(f => {
+            const col = folderColor(f.color)
+            const count = allDecks.filter(d => d.folderId === f.id).length
+            return `
+              <div class="folder-row">
+                <button class="folder-item ${state.activeFolderId === f.id ? 'active' : ''}"
+                  data-action="filter-folder" data-folder-id="${f.id}"
+                  style="${state.activeFolderId === f.id ? `background:${col.bg};color:${col.text}` : ''}">
+                  <span class="folder-dot" style="background:${col.text}"></span>
+                  <span class="folder-item-name">${escHtml(f.name)}</span>
+                  <span class="folder-count">${count}</span>
+                </button>
+                <button class="folder-del-btn" data-action="delete-folder" data-folder-id="${f.id}" title="Löschen">✕</button>
+              </div>
+            `
+          }).join('')}
+          <button class="new-folder-btn" data-action="new-folder">+ Ordner</button>
+        </aside>
 
-      <footer class="app-footer">
-        <span>Leitner 5-Fach · 20 Karten/Tag</span>
-      </footer>
+        <!-- Main: Decks -->
+        <main class="home-main">
+          ${visibleDecks.length === 0 ? renderEmptyState(!!state.activeFolderId) : `
+            <div class="deck-grid">
+              ${visibleDecks.map(deck => renderDeckCard(deck, folders)).join('')}
+            </div>
+          `}
+        </main>
+      </div>
+
+      <footer class="app-footer">Leitner 5-Fach · ${DAILY_BUDGET} Karten/Tag</footer>
     </div>
   `
 
   document.getElementById('file-import').addEventListener('change', handleImport)
 }
 
-function renderEmptyState() {
+function renderEmptyState(inFolder) {
   return `
     <div class="empty-state">
       <div class="empty-icon">◈</div>
-      <h2>Noch keine Decks</h2>
-      <p>Importiere ein Deck als JSON-Datei, um loszulegen.</p>
-      <div class="empty-format">
-        <p class="format-label">Deck-Format:</p>
-        <pre class="format-code">{
-  "name": "Biologie Zelle",
+      <h2>${inFolder ? 'Ordner ist leer' : 'Noch keine Decks'}</h2>
+      <p>${inFolder ? 'Decks per Drag-Menü in diesen Ordner verschieben.' : 'Importiere ein Deck als JSON-Datei.'}</p>
+      ${!inFolder ? `
+        <div class="empty-format">
+          <p class="format-label">Deck-Format:</p>
+          <pre class="format-code">{
   "id": "bio-zelle",
+  "name": "Biologie — Zelle",
+  "fach": "Biologie",
   "cards": [
-    {
-      "id": "card-001",
-      "front": "Was ist eine Zelle?",
-      "back": "Die kleinste Einheit des Lebens."
-    }
+    { "id": "c1", "front": "Frage", "back": "Antwort" }
   ]
 }</pre>
-      </div>
+        </div>` : ''}
     </div>
   `
 }
 
-function renderDeckGrid(deckList) {
-  return `
-    <div class="deck-grid">
-      ${deckList.map(deck => renderDeckCard(deck)).join('')}
-    </div>
-  `
-}
+function renderDeckCard(deck, folders) {
+  const progress  = getProgress(deck.id)
+  const stats     = getDeckStats(deck, progress)
+  const session   = getSessionCount(deck.id, today())
+  const settings  = getDeckSettings(deck.id)
+  const masteredPct = deck.cards.length > 0 ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
+  const budgetLeft  = Math.max(0, DAILY_BUDGET - session.studied)
+  const dueNow      = Math.min(stats.dueCount, budgetLeft)
+  const canStudy    = dueNow > 0 || (state.limitOverride && stats.dueCount > 0)
 
-function renderDeckCard(deck) {
-  const progress = getProgress(deck.id)
-  const stats = getDeckStats(deck, progress)
-  const session = getSessionCount(deck.id, today())
-  const masteredPct = deck.cards.length > 0
-    ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
-  const budgetLeft = Math.max(0, 20 - session.studied)
-  const dueNow = Math.min(stats.dueCount, budgetLeft)
-  const canStudy = dueNow > 0
+  const folder = deck.folderId ? folders.find(f => f.id === deck.folderId) : null
+  const col    = folder ? folderColor(folder.color) : null
 
   return `
     <div class="deck-card">
       <div class="deck-card-body">
-        <div class="deck-name">${escHtml(deck.name)}</div>
+        <div class="deck-card-top">
+          <div class="deck-name">${escHtml(deck.name)}</div>
+          ${deck.fach ? `<span class="deck-fach">${escHtml(deck.fach)}</span>` : ''}
+        </div>
+        ${folder ? `<div class="deck-folder-tag" style="background:${col.bg};color:${col.text}">${escHtml(folder.name)}</div>` : ''}
         <div class="deck-meta">
           <span>${stats.total} Karten</span>
           <span class="sep">·</span>
           <span>${masteredPct}% beherrscht</span>
         </div>
         ${renderBoxBar(stats.boxCounts, deck.cards.length)}
-        <div class="deck-due">
-          ${canStudy
-            ? `<span class="due-badge">${dueNow} heute fällig</span>`
-            : session.studied >= 20
-              ? `<span class="done-badge">Tageslimit ✓</span>`
-              : `<span class="uptodate-badge">Alles erledigt ✓</span>`
+        <div class="deck-due-row">
+          ${dueNow > 0
+            ? `<span class="due-badge">${dueNow} fällig</span>`
+            : session.studied >= DAILY_BUDGET
+              ? `<span class="done-badge">Limit ✓</span>`
+              : `<span class="uptodate-badge">Erledigt ✓</span>`
           }
-          ${session.studied > 0
-            ? `<span class="studied-today">${session.studied} heute gelernt</span>` : ''}
+          ${session.studied > 0 ? `<span class="studied-today">${session.studied} heute</span>` : ''}
+          <label class="reverse-toggle" title="Vorder/Rückseite tauschen">
+            <input type="checkbox" class="reverse-cb" data-deck-id="${deck.id}"
+              ${settings.reversed ? 'checked' : ''} />
+            ⇄
+          </label>
         </div>
       </div>
       <div class="deck-card-actions">
-        <button
-          class="btn btn-study ${canStudy ? '' : 'btn-disabled'}"
-          data-action="study" data-deck-id="${deck.id}"
-          ${canStudy ? '' : 'disabled'}>
+        <select class="deck-folder-select" data-action="move-deck" data-deck-id="${deck.id}">
+          <option value="">Kein Ordner</option>
+          ${folders.map(f => `<option value="${f.id}" ${deck.folderId === f.id ? 'selected' : ''}>${escHtml(f.name)}</option>`).join('')}
+        </select>
+        <button class="btn btn-study ${canStudy ? '' : 'btn-disabled'}"
+          data-action="study" data-deck-id="${deck.id}" ${canStudy ? '' : 'disabled'}>
           ${canStudy ? 'Lernen' : 'Fertig'}
         </button>
-        <button class="btn btn-ghost btn-delete"
-          data-action="delete" data-deck-id="${deck.id}"
-          title="Deck löschen">✕</button>
+        <button class="btn btn-ghost btn-delete" data-action="delete" data-deck-id="${deck.id}" title="Löschen">✕</button>
       </div>
     </div>
   `
@@ -146,14 +191,12 @@ function renderDeckCard(deck) {
 function renderBoxBar(boxCounts, total) {
   if (total === 0) return ''
   const colors = ['', '#e88c7a', '#e8c07a', '#d4d07a', '#8ec98c', '#5b9e6b']
-  const segs = [1, 2, 3, 4, 5].map(box => {
+  const segs = [1,2,3,4,5].map(box => {
     const pct = total > 0 ? ((boxCounts[box] || 0) / total * 100).toFixed(1) : 0
     if (pct == 0) return ''
-    return `<div class="box-bar-seg" style="width:${pct}%;background:${colors[box]}"
-      title="Fach ${box}: ${boxCounts[box] || 0} Karten"></div>`
+    return `<div class="box-bar-seg" style="width:${pct}%;background:${colors[box]}" title="Fach ${box}: ${boxCounts[box]||0}"></div>`
   }).join('')
-  return `<div class="box-bar">${segs ||
-    '<div class="box-bar-seg" style="width:100%;background:#e2d8cf"></div>'}</div>`
+  return `<div class="box-bar">${segs || '<div class="box-bar-seg" style="width:100%;background:#e2d8cf"></div>'}</div>`
 }
 
 // ── Study ─────────────────────────────────────────────────────────────────────
@@ -161,20 +204,22 @@ function renderStudy() {
   const { deck, queue, queueIdx, flipped } = state
   if (queueIdx >= queue.length) { navigate('summary'); return }
 
-  const card = queue[queueIdx]
-  const cardState = getCardState(deck.id, card.id)
+  const raw       = queue[queueIdx]
+  const settings  = getDeckSettings(deck.id)
+  const card      = settings.reversed
+    ? { ...raw, front: raw.back, back: raw.front }
+    : raw
+  const cardState = getCardState(deck.id, raw.id)
 
   root.innerHTML = `
     <div class="screen study-screen">
       <header class="study-header">
         <button class="btn btn-ghost back-btn" id="back-home">← Zurück</button>
-        <div class="study-deck-name">${escHtml(deck.name)}</div>
+        <div class="study-deck-name">${escHtml(deck.name)}${settings.reversed ? ' <span class="reversed-badge">⇄</span>' : ''}</div>
         <div class="study-progress-text">${queueIdx + 1} / ${queue.length}</div>
       </header>
-
       <div class="study-progress-bar">
-        <div class="study-progress-fill"
-          style="width:${(queueIdx / queue.length) * 100}%"></div>
+        <div class="study-progress-fill" style="width:${(queueIdx / queue.length) * 100}%"></div>
       </div>
 
       <main class="study-main">
@@ -199,9 +244,11 @@ function renderStudy() {
                 <div class="card-face-label">Antwort</div>
                 <div class="card-text">${renderMarkdown(card.back)}</div>
               </div>
-              <div class="answer-buttons">
-                <button class="btn btn-wrong" id="btn-wrong">✗ Nochmal</button>
-                <button class="btn btn-correct" id="btn-correct">✓ Gewusst</button>
+              <div class="grade-buttons">
+                <button class="grade-btn grade-again"  data-grade="0">✗<span>Nochmal</span></button>
+                <button class="grade-btn grade-hard"   data-grade="1">~<span>Schwer</span></button>
+                <button class="grade-btn grade-good"   data-grade="2">✓<span>Gut</span></button>
+                <button class="grade-btn grade-easy"   data-grade="3">★<span>Einfach</span></button>
               </div>
             </div>
           </div>
@@ -215,16 +262,13 @@ function renderStudy() {
   `
 
   document.getElementById('back-home').addEventListener('click', () => navigate('home'))
-
   document.getElementById('card-scene').addEventListener('click', e => {
     if (!state.flipped && !e.target.closest('button')) flipCard()
   })
-
-  const revealBtn = document.getElementById('reveal-btn')
-  if (revealBtn) revealBtn.addEventListener('click', flipCard)
-
-  document.getElementById('btn-wrong')?.addEventListener('click', () => answerCard(false))
-  document.getElementById('btn-correct')?.addEventListener('click', () => answerCard(true))
+  document.getElementById('reveal-btn')?.addEventListener('click', flipCard)
+  document.querySelectorAll('.grade-btn').forEach(btn => {
+    btn.addEventListener('click', () => gradeCard(parseInt(btn.dataset.grade)))
+  })
 }
 
 function flipCard() {
@@ -235,17 +279,16 @@ function flipCard() {
   if (hint) hint.textContent = ''
 }
 
-function answerCard(correct) {
+function gradeCard(grade) {
   const { deck, queue, queueIdx } = state
-  const card = queue[queueIdx]
-  const cardState = getCardState(deck.id, card.id)
-  const newBox = nextBox(cardState.box, correct)
+  const raw       = queue[queueIdx]
+  const cardState = getCardState(deck.id, raw.id)
+  const newBox    = nextBox(cardState.box, grade)
 
-  setCardState(deck.id, card.id, { box: newBox, lastReviewed: today() })
-  bumpSessionCount(deck.id, today(), correct)
+  setCardState(deck.id, raw.id, { box: newBox, lastReviewed: today() })
+  bumpSessionCount(deck.id, today(), grade)
 
-  if (correct) state.sessionCorrect++
-  state.sessionTotal++
+  state.sessionGrades.push(grade)
   state.queueIdx++
   state.flipped = false
   render()
@@ -253,15 +296,19 @@ function answerCard(correct) {
 
 // ── Summary ───────────────────────────────────────────────────────────────────
 function renderSummary() {
-  const { deck, sessionCorrect, sessionTotal } = state
+  const { deck, sessionGrades } = state
+  const total    = sessionGrades.length
+  const good     = sessionGrades.filter(g => g >= 2).length
+  const again    = sessionGrades.filter(g => g === 0).length
+  const hard     = sessionGrades.filter(g => g === 1).length
+  const easy     = sessionGrades.filter(g => g === 3).length
+  const pct      = total > 0 ? Math.round((good / total) * 100) : 0
   const progress = getProgress(deck.id)
-  const stats = getDeckStats(deck, progress)
-  const pct = sessionTotal > 0 ? Math.round((sessionCorrect / sessionTotal) * 100) : 0
-  const masteredPct = deck.cards.length > 0
-    ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
+  const stats    = getDeckStats(deck, progress)
+  const masteredPct = deck.cards.length > 0 ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
 
   const message = pct >= 90 ? 'Ausgezeichnet! 🎉'
-    : pct >= 70 ? 'Sehr gut gemacht!'
+    : pct >= 70 ? 'Sehr gut!'
     : pct >= 50 ? 'Weiter so!'
     : 'Übung macht den Meister.'
 
@@ -271,31 +318,25 @@ function renderSummary() {
         <div class="summary-icon">◈</div>
         <h1 class="summary-title">${message}</h1>
         <div class="summary-stats">
-          <div class="stat-item">
-            <div class="stat-num">${sessionTotal}</div>
-            <div class="stat-lbl">Gelernt</div>
-          </div>
-          <div class="stat-item stat-green">
-            <div class="stat-num">${sessionCorrect}</div>
-            <div class="stat-lbl">Gewusst</div>
-          </div>
-          <div class="stat-item stat-red">
-            <div class="stat-num">${sessionTotal - sessionCorrect}</div>
-            <div class="stat-lbl">Wiederholen</div>
-          </div>
+          <div class="stat-item"><div class="stat-num">${total}</div><div class="stat-lbl">Gelernt</div></div>
+          <div class="stat-item stat-green"><div class="stat-num">${good}</div><div class="stat-lbl">Gut/Einfach</div></div>
+          <div class="stat-item stat-red"><div class="stat-num">${again}</div><div class="stat-lbl">Nochmal</div></div>
         </div>
-        <div class="summary-pct">${pct}% richtig</div>
+        <div class="grade-breakdown">
+          <div class="grade-row"><span class="grade-dot again"></span>Nochmal<span>${again}</span></div>
+          <div class="grade-row"><span class="grade-dot hard"></span>Schwer<span>${hard}</span></div>
+          <div class="grade-row"><span class="grade-dot good"></span>Gut<span>${good - easy}</span></div>
+          <div class="grade-row"><span class="grade-dot easy"></span>Einfach<span>${easy}</span></div>
+        </div>
+        <div class="summary-pct">${pct}% gut/einfach</div>
         <div class="summary-bar-wrap">
-          <div class="summary-bar">
-            <div class="summary-bar-fill" style="width:${pct}%"></div>
-          </div>
+          <div class="summary-bar"><div class="summary-bar-fill" style="width:${pct}%"></div></div>
         </div>
         <div class="summary-mastered">${masteredPct}% des Decks beherrscht</div>
         <button class="btn btn-primary" id="btn-home">Zur Übersicht</button>
       </div>
     </div>
   `
-
   document.getElementById('btn-home').addEventListener('click', () => navigate('home'))
 }
 
@@ -303,62 +344,100 @@ function renderSummary() {
 async function handleImport(e) {
   const file = e.target.files[0]
   if (!file) return
-
   try {
-    const text = await file.text()
-    const data = JSON.parse(text)
-
+    const data = JSON.parse(await file.text())
     if (!data.name || !Array.isArray(data.cards)) {
-      showToast('Ungültiges Format. Brauche "name" und "cards".', 'error')
-      return
+      showToast('Ungültiges Format. Brauche "name" und "cards".', 'error'); return
     }
     if (!data.cards.every(c => c.id && c.front && c.back)) {
-      showToast('Jede Karte braucht "id", "front" und "back".', 'error')
-      return
+      showToast('Jede Karte braucht "id", "front", "back".', 'error'); return
     }
-
     const deck = {
       id: data.id || `deck_${Date.now()}`,
-      name: data.name,
-      cards: data.cards,
-      importedAt: new Date().toISOString(),
+      name: data.name, fach: data.fach ?? null,
+      cards: data.cards, importedAt: new Date().toISOString(), folderId: null,
     }
     saveDeck(deck)
     showToast(`"${deck.name}" importiert — ${deck.cards.length} Karten`, 'success')
     render()
-  } catch {
-    showToast('Fehler beim Lesen der Datei.', 'error')
-  }
-
+  } catch { showToast('Fehler beim Lesen der Datei.', 'error') }
   e.target.value = ''
 }
 
-// ── Event delegation (home buttons) ──────────────────────────────────────────
+// ── Event delegation ──────────────────────────────────────────────────────────
 document.addEventListener('click', e => {
-  const action = e.target.closest('[data-action]')
-  if (!action) return
-  const { action: act, deckId } = action.dataset
-  if (act === 'study')  startStudy(deckId)
-  if (act === 'delete') confirmDelete(deckId)
+  const el = e.target.closest('[data-action]')
+  if (!el) return
+  const { action, deckId, folderId } = el.dataset
+
+  if (action === 'study')         startStudy(deckId)
+  if (action === 'delete')        confirmDelete(deckId)
+  if (action === 'filter-folder') { state.activeFolderId = folderId || null; render() }
+  if (action === 'new-folder')    createFolder()
+  if (action === 'delete-folder') confirmDeleteFolder(folderId)
+})
+
+document.addEventListener('change', e => {
+  // Reverse toggle
+  if (e.target.classList.contains('reverse-cb')) {
+    const deckId   = e.target.dataset.deckId
+    const settings = getDeckSettings(deckId)
+    settings.reversed = e.target.checked
+    saveDeckSettings(deckId, settings)
+    showToast(settings.reversed ? 'Vorder/Rückseite getauscht' : 'Normal')
+  }
+  // Move deck to folder
+  if (e.target.dataset.action === 'move-deck') {
+    const deckId   = e.target.dataset.deckId
+    const decks    = getDecks()
+    const deck     = decks[deckId]
+    if (deck) { deck.folderId = e.target.value || null; saveDeck(deck) }
+  }
 })
 
 function startStudy(deckId) {
   const deck = getDecks()[deckId]
   if (!deck) return
   const progress = getProgress(deckId)
-  const session = getSessionCount(deckId, today())
-  const queue = getDueCards(deck, progress, session.studied)
-  if (!queue.length) { showToast('Keine fälligen Karten — super!', 'success'); return }
-  navigate('study', { deck, queue, queueIdx: 0, flipped: false,
-    sessionCorrect: 0, sessionTotal: 0 })
+  const session  = getSessionCount(deckId, today())
+  const queue    = getDueCards(deck, progress, session.studied, state.limitOverride)
+  if (!queue.length) {
+    // Offer to override limit
+    if (!state.limitOverride && session.studied >= DAILY_BUDGET) {
+      if (confirm('Tageslimit erreicht. Trotzdem weitermachen?')) {
+        state.limitOverride = true
+        startStudy(deckId)
+      }
+    } else {
+      showToast('Keine fälligen Karten — super!', 'success')
+    }
+    return
+  }
+  navigate('study', { deck, queue, queueIdx: 0, flipped: false, sessionGrades: [] })
 }
 
 function confirmDelete(deckId) {
   const deck = getDecks()[deckId]
   if (!deck) return
-  if (confirm(`"${deck.name}" löschen? Alle Fortschritte gehen verloren.`)) {
-    deleteDeck(deckId)
-    showToast(`"${deck.name}" gelöscht.`)
+  if (confirm(`"${deck.name}" löschen? Fortschritt geht verloren.`)) {
+    deleteDeck(deckId); showToast(`"${deck.name}" gelöscht.`); render()
+  }
+}
+
+function createFolder() {
+  const name = prompt('Ordnername:')
+  if (!name?.trim()) return
+  const colorId = FOLDER_COLORS[getFolders().length % FOLDER_COLORS.length].id
+  saveFolder({ id: `f_${Date.now()}`, name: name.trim(), color: colorId })
+  render()
+}
+
+function confirmDeleteFolder(folderId) {
+  const f = getFolders().find(f => f.id === folderId)
+  if (!f) return
+  if (confirm(`Ordner "${f.name}" löschen? Decks bleiben erhalten.`)) {
+    deleteFolder(folderId)
+    if (state.activeFolderId === folderId) state.activeFolderId = null
     render()
   }
 }
@@ -375,9 +454,8 @@ function showToast(msg, type = 'info') {
   setTimeout(() => { t.classList.remove('toast-show'); setTimeout(() => t.remove(), 300) }, 2800)
 }
 
-// ── Utils ─────────────────────────────────────────────────────────────────────
 function escHtml(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
 }
 
 function renderMarkdown(text) {
@@ -390,5 +468,4 @@ function renderMarkdown(text) {
     .replace(/\n/g,'<br>')
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────────
 render()
