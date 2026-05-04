@@ -61,6 +61,14 @@ export function getDueCards(deck, progress, studiedToday, limitOverride = false)
   return limitOverride ? allDue : allDue.slice(0, remaining)
 }
 
+export function getAllCardsSorted(deck, progress) {
+  return [...deck.cards].sort((a, b) => {
+    const boxA = (progress[a.id] ?? { box: 1 }).box
+    const boxB = (progress[b.id] ?? { box: 1 }).box
+    return boxA - boxB
+  })
+}
+
 export function getDeckStats(deck, progress) {
   const total = deck.cards.length
   const boxCounts = [0, 0, 0, 0, 0, 0]

@@ -7,7 +7,7 @@ import {
   getDeckSettings, saveDeckSettings,
   resetDeckProgress,
 } from './storage.js'
-import { today, getDueCards, getDeckStats, nextBox, DAILY_BUDGET } from './leitner.js'
+import { today, getDueCards, getAllCardsSorted, getDeckStats, nextBox, DAILY_BUDGET } from './leitner.js'
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const state = {
@@ -130,18 +130,23 @@ function renderEmptyState(inFolder) {
 }
 
 function renderDeckCard(deck, folders) {
-  const progress  = getProgress(deck.id)
-  const stats     = getDeckStats(deck, progress)
-  const session   = getSessionCount(deck.id, today())
-  const settings  = getDeckSettings(deck.id)
-  const masteredPct = deck.cards.length > 0 ? Math.round((stats.mastered / deck.cards.length) * 100) : 0
-  const avgBox = deck.cards.length > 0
-    ? ([1,2,3,4,5].reduce((s,b) => s + b * (stats.boxCounts[b]||0), 0) / deck.cards.length).toFixed(1)
-    : '–'
-  const budgetLeft  = Math.max(0, DAILY_BUDGET - session.studied)
-  const dueNow      = Math.min(stats.dueCount, budgetLeft)
-  const atLimit     = !state.limitOverride && session.studied >= DAILY_BUDGET && stats.dueCount > 0
-  const canStudy    = dueNow > 0 || (state.limitOverride && stats.dueCount > 0) || atLimit
+  const progress   = getProgress(deck.id)
+  const stats      = getDeckStats(deck, progress)
+  const session    = getSessionCount(deck.id, today())
+  const settings   = getDeckSettings(deck.id)
+  const total      = deck.cards.length
+  const securePct  = total > 0
+    ? Math.round(((stats.boxCounts[4]||0) + (stats.boxCounts[5]||0)) / total * 100)
+    : 0
+  const barColor   = securePct >= 66
+    ? 'oklch(0.55 0.13 145)'   // green
+    : securePct >= 33
+      ? 'oklch(0.68 0.14 65)'  // amber
+      : 'oklch(0.55 0.14 25)'  // red
+  const budgetLeft = Math.max(0, DAILY_BUDGET - session.studied)
+  const dueNow     = Math.min(stats.dueCount, budgetLeft)
+  const canStudy   = dueNow > 0 || (state.limitOverride && stats.dueCount > 0)
+  const hasCards   = total > 0
 
   const folder = deck.folderId ? folders.find(f => f.id === deck.folderId) : null
   const col    = folder ? folderColor(folder.color) : null
@@ -154,21 +159,20 @@ function renderDeckCard(deck, folders) {
           ${deck.fach ? `<span class="deck-fach">${escHtml(deck.fach)}</span>` : ''}
         </div>
         ${folder ? `<div class="deck-folder-tag" style="background:${col.bg};color:${col.text}">${escHtml(folder.name)}</div>` : ''}
-        <div class="deck-meta">
-          <span>${stats.total} Karten</span>
-          <span class="sep">·</span>
-          <span>Ø Fach ${avgBox}</span>
-          ${masteredPct > 0 ? `<span class="sep">·</span><span class="mastered-pct">${masteredPct}% Fach 5</span>` : ''}
+        <div class="deck-secure-row">
+          <span class="secure-pct" style="color:${barColor}">${securePct}%</span>
+          <span class="secure-label">sicher</span>
+          <div class="secure-bar">
+            <div class="secure-bar-fill" style="width:${securePct}%;background:${barColor}"></div>
+          </div>
         </div>
-        ${renderBoxBar(stats.boxCounts, deck.cards.length)}
         <div class="deck-due-row">
           ${dueNow > 0
             ? `<span class="due-badge">${dueNow} fällig</span>`
-            : session.studied >= DAILY_BUDGET
-              ? `<span class="done-badge">Limit ✓</span>`
-              : `<span class="uptodate-badge">Erledigt ✓</span>`
+            : stats.dueCount === 0
+              ? `<span class="uptodate-badge">Erledigt ✓</span>`
+              : `<span class="done-badge">Limit ✓</span>`
           }
-          ${session.studied > 0 ? `<span class="studied-today">${session.studied} heute</span>` : ''}
           <label class="reverse-toggle" title="Vorder/Rückseite tauschen">
             <input type="checkbox" class="reverse-cb" data-deck-id="${deck.id}"
               ${settings.reversed ? 'checked' : ''} />
@@ -181,9 +185,10 @@ function renderDeckCard(deck, folders) {
           <option value="">Kein Ordner</option>
           ${folders.map(f => `<option value="${f.id}" ${deck.folderId === f.id ? 'selected' : ''}>${escHtml(f.name)}</option>`).join('')}
         </select>
-        <button class="btn btn-study ${canStudy ? (atLimit ? 'btn-limit' : '') : 'btn-disabled'}"
+        ${hasCards ? `<button class="btn btn-study-all" data-action="study-all" data-deck-id="${deck.id}">Alles üben</button>` : ''}
+        <button class="btn btn-study ${canStudy ? '' : 'btn-disabled'}"
           data-action="study" data-deck-id="${deck.id}" ${canStudy ? '' : 'disabled'}>
-          ${canStudy ? (atLimit ? '+ Mehr' : 'Lernen') : 'Fertig'}
+          ${canStudy ? 'Lernen' : 'Fertig'}
         </button>
         <button class="btn btn-ghost btn-reset" data-action="reset" data-deck-id="${deck.id}" title="Fortschritt zurücksetzen">↺</button>
         <button class="btn btn-ghost btn-delete" data-action="delete" data-deck-id="${deck.id}" title="Löschen">✕</button>
@@ -337,11 +342,15 @@ function renderSummary() {
           <div class="summary-bar"><div class="summary-bar-fill" style="width:${pct}%"></div></div>
         </div>
         <div class="summary-mastered">${masteredPct}% des Decks beherrscht</div>
-        <button class="btn btn-primary" id="btn-home">Zur Übersicht</button>
+        <div class="summary-actions">
+          <button class="btn btn-study-all" id="btn-again">Alles üben</button>
+          <button class="btn btn-primary" id="btn-home">Zur Übersicht</button>
+        </div>
       </div>
     </div>
   `
   document.getElementById('btn-home').addEventListener('click', () => navigate('home'))
+  document.getElementById('btn-again').addEventListener('click', () => startStudy(deck.id, true))
 }
 
 // ── Import ────────────────────────────────────────────────────────────────────
@@ -375,6 +384,7 @@ document.addEventListener('click', e => {
   const { action, deckId, folderId } = el.dataset
 
   if (action === 'study')         startStudy(deckId)
+  if (action === 'study-all')     startStudy(deckId, true)
   if (action === 'delete')        confirmDelete(deckId)
   if (action === 'reset')         confirmReset(deckId)
   if (action === 'filter-folder') { state.activeFolderId = folderId || null; render() }
@@ -400,25 +410,18 @@ document.addEventListener('change', e => {
   }
 })
 
-function startStudy(deckId) {
+function startStudy(deckId, all = false) {
   const deck = getDecks()[deckId]
   if (!deck) return
   const progress = getProgress(deckId)
-  const session  = getSessionCount(deckId, today())
-  const queue    = getDueCards(deck, progress, session.studied, state.limitOverride)
+  const queue = all
+    ? getAllCardsSorted(deck, progress)
+    : getDueCards(deck, progress, getSessionCount(deckId, today()).studied, state.limitOverride)
   if (!queue.length) {
-    // Offer to override limit
-    if (!state.limitOverride && session.studied >= DAILY_BUDGET) {
-      if (confirm('Tageslimit erreicht. Trotzdem weitermachen?')) {
-        state.limitOverride = true
-        startStudy(deckId)
-      }
-    } else {
-      showToast('Keine fälligen Karten — super!', 'success')
-    }
+    showToast('Keine Karten im Deck.', 'info')
     return
   }
-  navigate('study', { deck, queue, queueIdx: 0, flipped: false, sessionGrades: [] })
+  navigate('study', { deck, queue, queueIdx: 0, flipped: false, sessionGrades: [], studyAll: all })
 }
 
 function confirmReset(deckId) {
