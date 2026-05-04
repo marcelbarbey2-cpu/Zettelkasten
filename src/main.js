@@ -65,42 +65,39 @@ function renderHome() {
         </label>
       </header>
 
-      <div class="home-body">
-        <!-- Sidebar: Ordner -->
-        <aside class="folder-sidebar">
-          <div class="folder-sidebar-title">Ordner</div>
-          <button class="folder-item ${!state.activeFolderId ? 'active' : ''}" data-action="filter-folder" data-folder-id="">
-            <span class="folder-item-icon">◈</span> Alle
-            <span class="folder-count">${allDecks.length}</span>
-          </button>
-          ${folders.map(f => {
-            const col = folderColor(f.color)
-            const count = allDecks.filter(d => d.folderId === f.id).length
-            return `
-              <div class="folder-row">
-                <button class="folder-item ${state.activeFolderId === f.id ? 'active' : ''}"
-                  data-action="filter-folder" data-folder-id="${f.id}"
-                  style="${state.activeFolderId === f.id ? `background:${col.bg};color:${col.text}` : ''}">
-                  <span class="folder-dot" style="background:${col.text}"></span>
-                  <span class="folder-item-name">${escHtml(f.name)}</span>
-                  <span class="folder-count">${count}</span>
-                </button>
-                <button class="folder-del-btn" data-action="delete-folder" data-folder-id="${f.id}" title="Löschen">✕</button>
-              </div>
-            `
-          }).join('')}
-          <button class="new-folder-btn" data-action="new-folder">+ Ordner</button>
-        </aside>
-
-        <!-- Main: Decks -->
-        <main class="home-main">
-          ${visibleDecks.length === 0 ? renderEmptyState(!!state.activeFolderId) : `
-            <div class="deck-grid">
-              ${visibleDecks.map(deck => renderDeckCard(deck, folders)).join('')}
+      <!-- Folder tabs -->
+      <nav class="folder-tabs">
+        <button class="folder-tab ${!state.activeFolderId ? 'active' : ''}" data-action="filter-folder" data-folder-id="">
+          Alle <span class="folder-tab-count">${allDecks.length}</span>
+        </button>
+        ${folders.map(f => {
+          const col   = folderColor(f.color)
+          const count = allDecks.filter(d => d.folderId === f.id).length
+          const isActive = state.activeFolderId === f.id
+          return `
+            <div class="folder-tab-wrap">
+              <button class="folder-tab ${isActive ? 'active' : ''}"
+                data-action="filter-folder" data-folder-id="${f.id}"
+                style="${isActive ? `--tab-bg:${col.bg};--tab-color:${col.text}` : `--tab-dot:${col.text}`}">
+                <span class="folder-tab-dot" style="background:${col.text}"></span>
+                ${escHtml(f.name)}
+                <span class="folder-tab-count">${count}</span>
+              </button>
+              <button class="folder-tab-del" data-action="delete-folder" data-folder-id="${f.id}" title="Löschen">✕</button>
             </div>
-          `}
-        </main>
-      </div>
+          `
+        }).join('')}
+        <button class="folder-tab-new" data-action="new-folder">+ Ordner</button>
+      </nav>
+
+      <!-- Main: Decks -->
+      <main class="home-main">
+        ${visibleDecks.length === 0 ? renderEmptyState(!!state.activeFolderId) : `
+          <div class="deck-grid">
+            ${visibleDecks.map(deck => renderDeckCard(deck, folders)).join('')}
+          </div>
+        `}
+      </main>
 
       <footer class="app-footer">Leitner 5-Fach · ${DAILY_BUDGET} Karten/Tag</footer>
     </div>
