@@ -62,7 +62,7 @@ function renderHome() {
         <div class="logo"><span class="logo-icon">◈</span><span class="logo-text">Zettelkasten</span></div>
         <label class="btn btn-primary import-btn" tabindex="0">
           <span>+ Deck importieren</span>
-          <input type="file" id="file-import" accept=".json,.txt" style="display:none" />
+          <input type="file" id="file-import" accept=".json,.docx" style="display:none" />
         </label>
       </header>
 
