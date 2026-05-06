@@ -62,7 +62,7 @@ function renderHome() {
         <div class="logo"><span class="logo-icon">◈</span><span class="logo-text">Zettelkasten</span></div>
         <label class="btn btn-primary import-btn" tabindex="0">
           <span>+ Deck importieren</span>
-          <input type="file" id="file-import" accept=".json,.docx" style="display:none" />
+          <input type="file" id="file-import" accept=".json,.zip" style="display:none" />
         </label>
       </header>
 
@@ -358,7 +358,16 @@ async function handleImport(e) {
   const file = e.target.files[0]
   if (!file) return
   try {
-    const data = JSON.parse(await file.text())
+    let text
+    if (file.name.endsWith('.zip')) {
+      const { unzipSync, strFromU8 } = await import('fflate')
+      const buf = new Uint8Array(await file.arrayBuffer())
+      const unzipped = unzipSync(buf)
+      text = strFromU8(Object.values(unzipped)[0])
+    } else {
+      text = await file.text()
+    }
+    const data = JSON.parse(text)
     if (!data.name || !Array.isArray(data.cards)) {
       showToast('Ungültiges Format. Brauche "name" und "cards".', 'error'); return
     }
